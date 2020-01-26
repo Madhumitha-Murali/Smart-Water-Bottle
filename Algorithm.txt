@@ -1,0 +1,116 @@
+#include "HX711.h"  //You must have this library in your arduino library folder
+ 
+#define DOUT  2
+#define CLK  4
+ 
+HX711 scale(DOUT, CLK);
+ 
+//Change this calibration factor as per your load cell once it is found you many need to vary it in thousands
+float calibration_factor = -96650; //-106600 worked for my 40Kg max scale setup 
+
+float drunk_water=0;
+float water_init;
+float water_curr;
+float water_curr1;
+float water_curr2;
+float water_prev;
+float bottle_wt;
+float threshold = 0.025;
+int flag;
+//=============================================================================================
+//                         SETUP
+//=============================================================================================
+void setup() {
+  Serial.begin(9600);  
+  //Serial.println("Press T to tare");
+  scale.set_scale(-96650);  //Calibration Factor obtained from first sketch
+  scale.tare();
+  //Reset the scale to 0 
+  delay(2000);
+  Serial.print(scale.get_units(20)); 
+  //if(scale.get_units(20)>=0.010)
+  //{
+   delay(10000);
+   bottle_wt=scale.get_units(20);
+   //water_init=scale.get_units(10);
+   //water_curr=water_init;
+   water_prev=0;
+   Serial.println("Beginning:Threshold = ");
+   Serial.println(threshold);
+   
+   scale.tare();
+   scale.set_scale(-96650);
+   Serial.println("Place the empty bottle:");
+   delay(5000);
+   bottle_wt=scale.get_units(10);
+   Serial.println(bottle_wt);
+
+   Serial.println("Place the bottle with water");
+   delay(5000);
+   water_curr=scale.get_units(5);
+   water_curr1=water_curr*12;
+   water_curr2=water_curr1/15; 
+
+   water_prev = water_curr2;
+
+   Serial.println("Water prev:");
+   Serial.println(water_prev);
+   
+  //}   
+}
+
+ 
+//=============================================================================================
+//                         LOOP
+//=============================================================================================
+void loop() {
+  
+  Serial.print("Weight: ");
+  //Serial.print((scale.get_units(5)* 12)/15, 3);  //Up to 3 decimal points
+  Serial.println(" kg"); //Change this to kg and re-adjust the calibration factor if you follow lbs
+  //delay(1000);
+  Serial.println(scale.get_units(5)* 12/(15),3);
+  //drunk_water=0;
+  if(Serial.available())
+  {
+    char temp = Serial.read();
+    if(temp == 't' || temp == 'T')
+      scale.tare();  //Reset the scale to zero      
+  }
+
+   water_curr=scale.get_units(5);
+   water_curr1=water_curr*12;
+   water_curr2=water_curr1/15;
+  
+   Serial.print("BFR TAKING BOTTLE  ");
+   Serial.print(water_curr2);
+  
+   
+    if(flag>0 && water_curr2 > threshold)
+    { 
+      delay(2000);
+      Serial.println(" flag= 1");
+      water_curr=scale.get_units(5);
+      water_curr1=water_curr*12;
+      water_curr2=water_curr1/15;
+      Serial.print(water_prev);
+      Serial.print(water_curr2);
+      drunk_water+=water_prev-water_curr2;
+      //water_prev=water_curr2;
+      delay(500); 
+      flag=0;
+   }
+
+    if(water_curr2 < threshold)
+   {
+    flag= 1;
+    water_prev = water_curr2;
+    Serial.println("flag = 0");
+   }
+   
+    Serial.print("Amount of water consumed:");
+    Serial.print(drunk_water);
+    Serial.print("\n");
+    delay(1000);
+   
+}
